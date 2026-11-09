@@ -130,7 +130,7 @@ export default function App() {
           {view === 'favorites' && <Favorites favorites={favorites} onRemove={removeFavorite} />}
           {view === 'water' && <WaterTracker />}
           {view === 'steps' && <StepCounter />}
-          {view === 'nutrition' && <NutritionTracker settings={settings} />}
+          {view === 'nutrition' && <NutritionTracker settings={settings} profile={profile} />}
         </ErrorBoundary>
 
         <footer className="mt-12 border-t border-cream-400/40 pt-6 text-center text-xs leading-relaxed text-choco-400">

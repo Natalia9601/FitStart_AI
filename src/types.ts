@@ -61,6 +61,7 @@ export type WaterGoal = {
   weightKg: number;
   goalMl: number;
   drunkMl: number;
+  date?: string;
   history?: { date: string; value: number }[];
 };
 
@@ -71,6 +72,8 @@ export type StepGoal = {
   history?: { date: string; value: number }[];
 };
 
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
 export type NutritionEntry = {
   id: string;
   name: string;
@@ -79,10 +82,20 @@ export type NutritionEntry = {
   protein: number;
   carbs: number;
   fat: number;
+  meal?: MealType;
+};
+
+export type WorkoutSession = {
+  id: string;
+  ts: number;
+  type: string;
+  minutes: number;
+  exercises: number;
 };
 
 export type NutritionLog = {
   date: string;
   goalKcal: number;
   entries: NutritionEntry[];
+  history?: { date: string; kcal: number }[];
 };

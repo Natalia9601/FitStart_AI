@@ -5,6 +5,8 @@ import type {
   WaterGoal,
   StepGoal,
   NutritionLog,
+  WorkoutSession,
+  ChatMessage,
   UserProfile,
 } from '@/types';
 
@@ -16,6 +18,8 @@ const KEYS = {
   waterGoal: 'fitstart_water_goal',
   stepGoal: 'fitstart_step_goal',
   nutritionLog: 'fitstart_nutrition_log',
+  workoutLog: 'fitstart_workout_log',
+  chat: 'fitstart_chat',
   profile: 'fitstart_profile',
 } as const;
 
@@ -77,7 +81,12 @@ export const storage = {
   getAISettings: () => read<AISettings>(KEYS.aiSettings, { apiKey: '', model: 'nvidia/nemotron-3.5-super-vl:free' }),
   setAISettings: (v: AISettings) => write(KEYS.aiSettings, v),
 
-  getWaterGoal: () => read<WaterGoal>(KEYS.waterGoal, DEFAULT_WATER_GOAL),
+  getWaterGoal: () => {
+    const stored = read<WaterGoal>(KEYS.waterGoal, DEFAULT_WATER_GOAL);
+    const local = todayKey();
+    if (stored.date !== local) return { ...stored, drunkMl: 0, date: local };
+    return stored;
+  },
   setWaterGoal: (v: WaterGoal) => write(KEYS.waterGoal, v),
 
   getStepGoal: () => read<StepGoal>(KEYS.stepGoal, DEFAULT_STEP_GOAL),
@@ -86,10 +95,30 @@ export const storage = {
   getNutritionLog: () => {
     const stored = read<NutritionLog>(KEYS.nutritionLog, DEFAULT_NUTRITION_LOG);
     const local = todayKey();
-    if (stored.date !== local) return { date: local, goalKcal: stored.goalKcal ?? DEFAULT_NUTRITION_LOG.goalKcal, entries: [] };
-    return stored;
+    const history = [...(stored.history ?? [])];
+    if (stored.date !== local && stored.entries?.length) {
+      const kcal = stored.entries.reduce((sum, e) => sum + e.kcal, 0);
+      const idx = history.findIndex((h) => h.date === stored.date);
+      if (idx >= 0) history[idx] = { date: stored.date, kcal };
+      else history.push({ date: stored.date, kcal });
+    }
+    if (stored.date !== local) {
+      return {
+        date: local,
+        goalKcal: stored.goalKcal ?? DEFAULT_NUTRITION_LOG.goalKcal,
+        entries: [],
+        history: history.slice(-30),
+      };
+    }
+    return { ...stored, history };
   },
   setNutritionLog: (v: NutritionLog) => write(KEYS.nutritionLog, v),
+
+  getWorkoutLog: () => read<WorkoutSession[]>(KEYS.workoutLog, []),
+  setWorkoutLog: (v: WorkoutSession[]) => write(KEYS.workoutLog, v),
+
+  getChat: () => read<ChatMessage[]>(KEYS.chat, []),
+  setChat: (v: ChatMessage[]) => write(KEYS.chat, v),
 
   getProfile: () => ({ ...DEFAULT_PROFILE, ...read<UserProfile>(KEYS.profile, DEFAULT_PROFILE) }),
   setProfile: (v: UserProfile) => write(KEYS.profile, v),

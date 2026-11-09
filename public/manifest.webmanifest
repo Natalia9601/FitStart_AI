@@ -1,0 +1,19 @@
+{
+  "name": "FitStart AI — прості рецепти, легкі тренування та здорові звички",
+  "short_name": "FitStart AI",
+  "description": "Прості рецепти, легкі тренування та здорові звички щодня.",
+  "lang": "uk",
+  "start_url": "/FitStart_AI/",
+  "scope": "/FitStart_AI/",
+  "display": "standalone",
+  "background_color": "#FBF7F6",
+  "theme_color": "#854858",
+  "icons": [
+    {
+      "src": "/FitStart_AI/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

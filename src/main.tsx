@@ -10,6 +10,15 @@ root.render(
   </StrictMode>
 );
 
+// PWA: базовий офлайн-кеш app shell (лише у production, щоб не ламати HMR у dev).
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/FitStart_AI/sw.js').catch(() => {
+      /* офлайн-підтримка не критична — тихо ігноруємо помилку */
+    });
+  });
+}
+
 // Scroll-reveal: animate sections into view.
 if (typeof IntersectionObserver !== 'undefined') {
   const revealObserver = new IntersectionObserver(

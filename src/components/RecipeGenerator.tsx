@@ -1,5 +1,17 @@
 import { useState } from 'react';
-import { Sparkles, Loader2, Clock, Users, Heart, ChevronDown, AlertCircle, RotateCw } from 'lucide-react';
+import {
+  AlertCircle,
+  Check,
+  ChevronDown,
+  Clock,
+  Copy,
+  Heart,
+  Loader2,
+  RotateCw,
+  Search,
+  Sparkles,
+  Users,
+} from 'lucide-react';
 import type { AISettings, GoalOption, Recipe, TimeOption } from '@/types';
 import { generateRecipes } from '@/lib/api';
 
@@ -46,6 +58,8 @@ export default function RecipeGenerator({ settings, onToggleFavorite, isFavorite
   const [error, setError] = useState('');
   const [showEmpty, setShowEmpty] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   function clearError() {
     if (error) setError('');
@@ -70,6 +84,26 @@ export default function RecipeGenerator({ settings, onToggleFavorite, isFavorite
     setShowEmpty(false);
     setLoading(false);
   }
+
+  async function copyRecipe(r: Recipe) {
+    const text = `${r.title}\n\n${r.ingredients.map((i) => `— ${i.name}`).join('\n')}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(r.id);
+      window.setTimeout(() => setCopiedId((v) => (v === r.id ? null : v)), 1800);
+    } catch {
+      /* clipboard may be blocked — silently ignore */
+    }
+  }
+
+  const query = search.trim().toLowerCase();
+  const visibleRecipes = query
+    ? recipes.filter(
+        (r) =>
+          r.title.toLowerCase().includes(query) ||
+          r.ingredients.some((i) => i.name.toLowerCase().includes(query)),
+      )
+    : recipes;
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -192,17 +226,36 @@ export default function RecipeGenerator({ settings, onToggleFavorite, isFavorite
       {/* Results */}
       {!loading && recipes.length > 0 && (
         <div className="space-y-5">
-          <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-display text-2xl text-choco-700">
               {recipes.length} ідеї для тебе
             </h2>
-            <button onClick={handleGenerate} className="btn-soft">
-              <RotateCw size={16} /> Згенерувати знову
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-choco-400" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Пошук у результатах"
+                  className="input-field !w-56 !py-2.5 !pl-9 text-sm"
+                  aria-label="Пошук у рецептах"
+                />
+              </div>
+              <button onClick={handleGenerate} className="btn-soft">
+                <RotateCw size={16} /> Ще варіанти
+              </button>
+            </div>
           </div>
 
+          {visibleRecipes.length === 0 && (
+            <div className="glass-card px-6 py-10 text-center">
+              <p className="font-medium text-choco-600">Нічого не знайдено</p>
+              <p className="mt-1 text-sm text-choco-400">Спробуй інший запит або згенеруй нові рецепти.</p>
+            </div>
+          )}
+
           <div className="grid lg:grid-cols-3 gap-5">
-            {recipes.map((r, idx) => {
+            {visibleRecipes.map((r, idx) => {
               const fav = isFavorite(r.id);
               const open = expanded === r.id;
               return (
@@ -279,13 +332,30 @@ export default function RecipeGenerator({ settings, onToggleFavorite, isFavorite
                       </div>
                     )}
 
-                    <button
-                      onClick={() => setExpanded(open ? null : r.id)}
-                      className="btn-ghost mt-auto self-start text-sm"
-                    >
-                      {open ? 'Згорнути' : 'Детальніше'}
-                      <ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-                    </button>
+                    <div className="mt-auto flex flex-wrap items-center gap-1">
+                      <button
+                        onClick={() => setExpanded(open ? null : r.id)}
+                        className="btn-ghost !px-3 !py-1.5 text-sm"
+                      >
+                        {open ? 'Згорнути' : 'Детальніше'}
+                        <ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+                      </button>
+                      <button
+                        onClick={() => copyRecipe(r)}
+                        className="btn-ghost !px-3 !py-1.5 text-sm"
+                        aria-label="Скопіювати інгредієнти"
+                      >
+                        {copiedId === r.id ? (
+                          <>
+                            <Check size={15} className="text-green-500" /> Скопійовано
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={15} /> Інгредієнти
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </article>
               );

@@ -24,4 +24,26 @@ describe('storage', () => {
     expect(s.goal).toBe(8000);
     expect(s.steps).toBe(0);
   });
+
+  it('resets drunk water on a new day and keeps weight norm', () => {
+    const today = todayKey();
+    storage.setWaterGoal({ weightKg: 70, goalMl: 2450, drunkMl: 1500, date: '2000-01-01' });
+    const w = storage.getWaterGoal();
+    expect(w.drunkMl).toBe(0);
+    expect(w.date).toBe(today);
+    expect(w.goalMl).toBe(2450);
+  });
+
+  it('archives yesterday calories into history and starts a fresh log', () => {
+    storage.setNutritionLog({
+      date: '2000-01-01',
+      goalKcal: 2000,
+      entries: [{ id: '1', name: 'rice', grams: 100, kcal: 300, protein: 6, carbs: 70, fat: 1 }],
+      history: [],
+    });
+    const log = storage.getNutritionLog();
+    expect(log.date).toBe(todayKey());
+    expect(log.entries).toEqual([]);
+    expect(log.history).toEqual([{ date: '2000-01-01', kcal: 300 }]);
+  });
 });

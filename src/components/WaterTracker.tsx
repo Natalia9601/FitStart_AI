@@ -44,7 +44,7 @@ export default function WaterTracker() {
       const idx = history.findIndex((h) => h.date === today);
       if (idx >= 0) history[idx] = { date: today, value: newDrunk };
       else history.push({ date: today, value: newDrunk });
-      return { ...prev, drunkMl: newDrunk, history: history.slice(-30) };
+      return { ...prev, drunkMl: newDrunk, date: today, history: history.slice(-30) };
     });
   };
 
@@ -59,6 +59,7 @@ export default function WaterTracker() {
         weightKg: prev.weightKg,
         goalMl: calculateNorm(prev.weightKg),
         drunkMl: 0,
+        date: today,
         history: history.slice(-30),
       };
     });

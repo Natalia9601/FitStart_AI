@@ -10,6 +10,7 @@ import {
   bmiOf,
   waterNormMl,
 } from '@/lib/avatar';
+import { trapFocus } from '@/lib/focus';
 import UserAvatar from './UserAvatar';
 
 const GENDERS: { key: Gender; label: string; emoji: string }[] = [
@@ -32,12 +33,9 @@ export default function ProfileModal({ profile, onSave, onClose }: Props) {
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     modalRef.current?.focus();
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
+    const untrap = trapFocus(modalRef.current, onClose);
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
+      untrap();
       prev?.focus?.();
     };
   }, [onClose]);

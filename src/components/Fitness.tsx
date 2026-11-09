@@ -1,8 +1,22 @@
-import { useState } from 'react';
-import { Dumbbell, Loader2, ChevronRight, CheckCircle2, Clock, MapPin, Activity } from 'lucide-react';
-import type { AISettings, Exercise } from '@/types';
+import { useEffect, useState } from 'react';
+import {
+  Activity,
+  CalendarCheck,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  Dumbbell,
+  Flame,
+  History,
+  Loader2,
+  MapPin,
+  Timer,
+} from 'lucide-react';
+import type { AISettings, Exercise, WorkoutSession } from '@/types';
 import { generateWorkout } from '@/lib/api';
 import { WORKOUT_TYPE_LABELS } from '@/lib/mockData';
+import { storage } from '@/lib/storage';
+import { dayKey } from '@/lib/streak';
 
 type Props = { settings: AISettings };
 
@@ -32,12 +46,21 @@ export default function Fitness({ settings }: Props) {
   const [started, setStarted] = useState(false);
   const [current, setCurrent] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [sessions, setSessions] = useState<WorkoutSession[]>(() => storage.getWorkoutLog());
+
+  useEffect(() => {
+    if (!started) return;
+    const id = window.setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [started]);
 
   async function handleStart() {
     setLoading(true);
     setStarted(false);
     setFinished(false);
     setCurrent(0);
+    setElapsed(0);
     const result = await generateWorkout(settings, duration, type, location, level);
     setExercises(result);
     setStarted(true);
@@ -47,6 +70,18 @@ export default function Fitness({ settings }: Props) {
   function handleFinish() {
     setFinished(true);
     setStarted(false);
+    if (exercises.length > 0) {
+      const session: WorkoutSession = {
+        id: `w-${Date.now()}`,
+        ts: Date.now(),
+        type,
+        minutes: duration,
+        exercises: exercises.length,
+      };
+      const next = [session, ...sessions].slice(0, 60);
+      setSessions(next);
+      storage.setWorkoutLog(next);
+    }
   }
 
   function handleReset() {
@@ -58,12 +93,54 @@ export default function Fitness({ settings }: Props) {
 
   const exercise = exercises[current];
 
+  const weekStart = Date.now() - 6 * 24 * 60 * 60 * 1000;
+  const weekSessions = sessions.filter((s) => s.ts >= weekStart);
+  const weekMinutes = weekSessions.reduce((sum, s) => sum + s.minutes, 0);
+  const workoutDays = new Set(sessions.map((s) => dayKey(new Date(s.ts))));
+  let workoutStreak = 0;
+  for (let i = 0; i < 366; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    if (workoutDays.has(dayKey(d))) workoutStreak++;
+    else if (i === 0) continue;
+    else break;
+  }
+  const recent = sessions.slice(0, 4);
+  const clock = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`;
+
   return (
     <div className="space-y-6 animate-fade-up">
       <div>
         <h1 className="section-title mb-1">Домашні тренування</h1>
         <p className="text-choco-500">Короткі розминки без обладнання — рухайся вдома без тиску</p>
       </div>
+
+      {/* Weekly stats */}
+      {!started && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="glass-card p-4 text-center">
+            <span className="icon-tile mx-auto mb-2 h-9 w-9 bg-sky-100 text-sky-500">
+              <CalendarCheck size={17} />
+            </span>
+            <p className="font-display text-2xl leading-none text-choco-800">{weekSessions.length}</p>
+            <p className="mt-1 text-xs text-choco-500">тренувань за тиждень</p>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <span className="icon-tile mx-auto mb-2 h-9 w-9 bg-primary-100 text-primary-500">
+              <Timer size={17} />
+            </span>
+            <p className="font-display text-2xl leading-none text-choco-800">{weekMinutes}</p>
+            <p className="mt-1 text-xs text-choco-500">хвилин руху</p>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <span className="icon-tile mx-auto mb-2 h-9 w-9 bg-coral-100 text-coral-400">
+              <Flame size={17} />
+            </span>
+            <p className="font-display text-2xl leading-none text-choco-800">{workoutStreak}</p>
+            <p className="mt-1 text-xs text-choco-500">днів поспіль</p>
+          </div>
+        </div>
+      )}
 
       {/* Setup panel */}
       {!started && !finished && (
@@ -150,11 +227,14 @@ export default function Fitness({ settings }: Props) {
       {started && exercise && (
         <div className="space-y-5 animate-fade-up">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2 text-sm text-choco-500">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-choco-500">
               <span className="px-3 py-1 rounded-full bg-cream-300/50 font-medium">
                 {WORKOUT_TYPE_LABELS[type]}
               </span>
               <span>Вправа {current + 1} / {exercises.length}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2.5 py-1 font-semibold text-primary-500">
+                <Timer size={13} /> {clock}
+              </span>
             </div>
             <button onClick={handleFinish} className="btn-soft text-sm">
               <CheckCircle2 size={16} /> Завершити
@@ -239,6 +319,36 @@ export default function Fitness({ settings }: Props) {
           <button onClick={handleReset} className="btn-primary">
             <Dumbbell size={18} /> Нове тренування
           </button>
+        </div>
+      )}
+
+      {/* Recent sessions */}
+      {!started && recent.length > 0 && (
+        <div className="glass-card p-5 sm:p-6">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="icon-tile h-8 w-8 bg-cream-300/70 text-choco-600">
+              <History size={16} />
+            </span>
+            <h2 className="font-display text-lg text-choco-800">Останні тренування</h2>
+          </div>
+          <div className="space-y-1.5">
+            {recent.map((s) => (
+              <div
+                key={s.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-cream-100 px-4 py-2.5 text-sm"
+              >
+                <span className="font-medium text-choco-700">
+                  {WORKOUT_TYPE_LABELS[s.type] ?? s.type}
+                </span>
+                <span className="text-xs text-choco-400">
+                  {new Date(s.ts).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })}
+                </span>
+                <span className="text-xs text-choco-500">
+                  {s.minutes} хв · {s.exercises} вправ
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

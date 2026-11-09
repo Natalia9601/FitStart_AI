@@ -2,9 +2,11 @@ import {
   Apple,
   ArrowRight,
   ArrowUpRight,
+  CheckCircle2,
   CheckSquare,
   Droplet,
   Dumbbell,
+  Flame,
   Footprints,
   Heart,
   HeartPulse,
@@ -14,6 +16,7 @@ import {
 import type { Habit, UserProfile, View } from '@/types';
 import type { LucideIcon } from 'lucide-react';
 import { storage, todayKey } from '@/lib/storage';
+import { habitStreak, lastNDays } from '@/lib/streak';
 import { avatarTip, bmiInfo, bmiOf, greeting, todayLabel } from '@/lib/avatar';
 import UserAvatar from './UserAvatar';
 
@@ -137,14 +140,17 @@ export default function Dashboard({ onNavigate, habits, favoritesCount, profile,
   const stepGoal = Math.max(stepData.goal, 1);
   const stepProgress = Math.min(100, Math.round((stepData.steps / stepGoal) * 100));
 
+  const nutrition = storage.getNutritionLog();
+  const nutritionKcal = nutrition.entries.reduce((sum, e) => sum + e.kcal, 0);
+  const nutritionProgress = Math.min(100, Math.round((nutritionKcal / Math.max(nutrition.goalKcal, 1)) * 100));
+  const balance = Math.round((waterProgress + stepProgress + habitsProgress + nutritionProgress) / 4);
+  const streak = habitStreak(log, habits.length);
+
   // Weekly activity (last 7 days) based on habit log
-  const weekDays = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const done = log[key]?.length ?? 0;
+  const weekDays = lastNDays(7).map((d) => {
+    const done = log[d.key]?.length ?? 0;
     const total = habits.length || 1;
-    return { label: ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][d.getDay()], value: Math.round((done / total) * 100), isToday: key === todayKey() };
+    return { label: d.label, value: Math.round((done / total) * 100), isToday: d.key === today };
   });
 
   const bmi = bmiOf(profile);
@@ -185,15 +191,26 @@ export default function Dashboard({ onNavigate, habits, favoritesCount, profile,
               </button>
             </div>
             <div className="mt-7 flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full border border-white/70 bg-cream-50/80 px-3 py-1.5 text-choco-600">
-                💧 {water.drunkMl} / {waterGoalMl} мл води
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-cream-50/80 px-3 py-1.5 text-choco-600"
+                title="Середній прогрес за водою, кроками, звичками та калоріями"
+              >
+                <Sparkles size={13} className="text-primary-500" /> Баланс дня {balance}%
               </span>
-              <span className="rounded-full border border-white/70 bg-cream-50/80 px-3 py-1.5 text-choco-600">
-                ✅ {done.length} / {habits.length} звичок
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-cream-50/80 px-3 py-1.5 text-choco-600">
+                <Droplet size={13} className="text-sky-500" /> {water.drunkMl} / {waterGoalMl} мл
               </span>
-              <span className="rounded-full border border-white/70 bg-cream-50/80 px-3 py-1.5 text-choco-600">
-                ❤️ {favoritesCount} у обраному
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-cream-50/80 px-3 py-1.5 text-choco-600">
+                <CheckCircle2 size={13} className="text-green-500" /> {done.length} / {habits.length} звичок
               </span>
+              {streak > 0 && (
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-cream-50/80 px-3 py-1.5 text-choco-600"
+                  title="Дні поспіль із виконаними звичками"
+                >
+                  <Flame size={13} className="text-coral-400" /> Серія {streak} дн.
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -295,6 +312,25 @@ export default function Dashboard({ onNavigate, habits, favoritesCount, profile,
               <p className="eyebrow">Кроки</p>
               <p className="stat-value mt-1">{stepData.steps.toLocaleString('uk-UA')}</p>
               <p className="mt-1 text-xs text-choco-500">з {stepGoal.toLocaleString('uk-UA')}</p>
+            </div>
+            <ArrowUpRight
+              size={16}
+              className="ml-auto shrink-0 text-choco-400 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+            />
+          </button>
+
+          <button
+            onClick={() => onNavigate('nutrition')}
+            className="sheet group flex items-center gap-4 p-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-lg"
+          >
+            <div className="relative grid place-items-center">
+              <Ring value={nutritionProgress} color="#D99578" />
+              <span className="absolute text-sm font-semibold text-choco-800">{nutritionProgress}%</span>
+            </div>
+            <div className="min-w-0">
+              <p className="eyebrow">Калорії</p>
+              <p className="stat-value mt-1">{nutritionKcal.toLocaleString('uk-UA')}</p>
+              <p className="mt-1 text-xs text-choco-500">ккал · ціль {nutrition.goalKcal}</p>
             </div>
             <ArrowUpRight
               size={16}

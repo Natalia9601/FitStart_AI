@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, X, Check, Flame } from 'lucide-react';
 import type { Habit } from '@/types';
 import { storage, todayKey } from '@/lib/storage';
+import { habitStreak, lastNDays } from '@/lib/streak';
 
 type Props = {
   habits: Habit[];
@@ -55,6 +56,16 @@ export default function Habits({ habits, onHabitsChange }: Props) {
   }
 
   const progress = habits.length ? Math.round((doneToday.length / habits.length) * 100) : 0;
+  const streak = habitStreak(log, habits.length);
+  const week = lastNDays(7).map((d) => {
+    const count = log[d.key]?.length ?? 0;
+    return {
+      key: d.key,
+      label: d.label,
+      value: habits.length ? Math.round((count / habits.length) * 100) : 0,
+      isToday: d.key === today,
+    };
+  });
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -87,6 +98,38 @@ export default function Habits({ habits, onHabitsChange }: Props) {
             className="h-full rounded-full bg-gradient-to-r from-sage-300 via-sage-400 to-sage-500 transition-all duration-700"
             style={{ width: `${progress}%` }}
           />
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-cream-400/50 pt-4">
+          <div className="flex items-center gap-2.5">
+            <span className="icon-tile h-9 w-9 bg-coral-100 text-coral-400">
+              <Flame size={18} />
+            </span>
+            <div>
+              <p className="text-xs text-choco-400">Серія</p>
+              <p className="text-sm font-semibold text-choco-700">
+                {streak > 0 ? `${streak} дн. поспіль` : 'Почни сьогодні'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-end gap-1.5" aria-label="Активність за останні 7 днів">
+            {week.map((d) => (
+              <div key={d.key} className="flex flex-col items-center gap-1">
+                <div className="flex h-9 w-6 items-end rounded-md bg-cream-300/60">
+                  <div
+                    className={`w-full rounded-md transition-all duration-500 ${
+                      d.value === 0 ? 'bg-cream-400/50' : d.isToday ? 'bg-green-400' : 'bg-green-300'
+                    }`}
+                    style={{ height: `${Math.max(12, d.value)}%` }}
+                    title={`${d.label}: ${d.value}%`}
+                  />
+                </div>
+                <span className={`text-[10px] ${d.isToday ? 'font-semibold text-choco-700' : 'text-choco-400'}`}>
+                  {d.label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

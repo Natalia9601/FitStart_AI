@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, KeyRound, Loader2, Shield, Check, AlertTriangle, X } from 'lucide-react';
 import type { AISettings } from '@/types';
 import { testConnection, isAIReady } from '@/lib/api';
+import { storage, todayKey } from '@/lib/storage';
+import { trapFocus } from '@/lib/focus';
 
 const MODELS = [
   { id: 'nvidia/nemotron-3.5-super-vl:free', label: 'NVIDIA: Nemotron 3.5 Super VL (free)' },
@@ -47,6 +49,39 @@ export default function SettingsModal({
     URL.revokeObjectURL(url);
   }
 
+  function handleExportCsv() {
+    const water = storage.getWaterGoal();
+    const steps = storage.getStepGoal();
+    const nutrition = storage.getNutritionLog();
+    const habitLog = storage.getHabitLog();
+    const rows: string[][] = [['Дата', 'Вода (мл)', 'Кроки', 'Звички', 'Калорії']];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const isToday = key === todayKey();
+      const waterMl = isToday
+        ? water.drunkMl
+        : water.history?.find((h) => h.date === key)?.value ?? '';
+      const stepCount = isToday
+        ? steps.steps
+        : steps.history?.find((h) => h.date === key)?.value ?? '';
+      const habitsDone = habitLog[key]?.length ?? 0;
+      const kcal = isToday
+        ? nutrition.entries.reduce((sum, e) => sum + e.kcal, 0)
+        : nutrition.history?.find((h) => h.date === key)?.kcal ?? '';
+      rows.push([key, String(waterMl), String(stepCount), String(habitsDone), String(kcal)]);
+    }
+    const csv = '\uFEFF' + rows.map((r) => r.join(';')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fitstart-stats-${todayKey()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -76,12 +111,9 @@ export default function SettingsModal({
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     modalRef.current?.focus();
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
+    const untrap = trapFocus(modalRef.current, onClose);
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
+      untrap();
       prev?.focus?.();
     };
   }, [onClose]);
@@ -195,12 +227,15 @@ export default function SettingsModal({
             <p className="text-xs text-choco-500 leading-relaxed">
               Експортуйте всі дані (профіль, звички, вода, кроки, обране, налаштування) у JSON-файл або відновіть із файлу.
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button onClick={handleExport} className="btn-soft flex-1 !py-2 text-sm">
                 Експортувати
               </button>
               <button onClick={() => fileInputRef.current?.click()} className="btn-soft flex-1 !py-2 text-sm">
                 Імпортувати
+              </button>
+              <button onClick={handleExportCsv} className="btn-soft flex-1 !py-2 text-sm">
+                Статистика CSV
               </button>
             </div>
             <input
