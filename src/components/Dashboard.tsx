@@ -1,9 +1,11 @@
 import {
+  Apple,
   ArrowRight,
   ArrowUpRight,
   CheckSquare,
   Droplet,
   Dumbbell,
+  Footprints,
   Heart,
   HeartPulse,
   Sparkles,
@@ -60,24 +62,24 @@ const QUICK: {
     title: 'Рецепти',
     desc: 'З продуктів, що вже є',
     icon: UtensilsCrossed,
-    bg: 'bg-blush-100',
-    fg: 'text-blush-600',
+    bg: 'bg-coral-100',
+    fg: 'text-coral-400',
   },
   {
     view: 'fitness',
     title: 'Тренування',
     desc: '10 хв без обладнання',
     icon: Dumbbell,
-    bg: 'bg-sage-200',
-    fg: 'text-sage-500',
+    bg: 'bg-sky-100',
+    fg: 'text-sky-500',
   },
   {
     view: 'habits',
     title: 'Звички',
     desc: 'М’який чек-лист на день',
     icon: CheckSquare,
-    bg: 'bg-amber-soft/70',
-    fg: 'text-choco-600',
+    bg: 'bg-green-100',
+    fg: 'text-green-500',
   },
   {
     view: 'water',
@@ -85,34 +87,65 @@ const QUICK: {
     desc: 'Скільки вже випито',
     icon: Droplet,
     bg: 'bg-sky-100',
-    fg: 'text-sky-600',
+    fg: 'text-sky-400',
+  },
+  {
+    view: 'steps',
+    title: 'Крокомір',
+    desc: 'Кроки за сьогодні',
+    icon: Footprints,
+    bg: 'bg-sage-100',
+    fg: 'text-sage-500',
+  },
+  {
+    view: 'nutrition',
+    title: 'Калорії',
+    desc: 'КБЖУ за сьогодні',
+    icon: Apple,
+    bg: 'bg-coral-50',
+    fg: 'text-coral-400',
   },
   {
     view: 'fitbuddy',
     title: 'FitBuddy',
     desc: 'Порада без осуду',
     icon: HeartPulse,
-    bg: 'bg-blush-200',
-    fg: 'text-blush-700',
+    bg: 'bg-primary-100',
+    fg: 'text-primary-600',
   },
   {
     view: 'favorites',
     title: 'Обране',
     desc: 'Збережені страви',
     icon: Heart,
-    bg: 'bg-cream-300',
-    fg: 'text-choco-600',
+    bg: 'bg-red-100',
+    fg: 'text-red-400',
   },
 ];
 
 export default function Dashboard({ onNavigate, habits, favoritesCount, profile, onOpenProfile }: Props) {
+  const today = todayKey();
   const log = storage.getHabitLog();
-  const done = log[todayKey()] ?? [];
+  const done = log[today] ?? [];
   const habitsProgress = habits.length ? Math.round((done.length / habits.length) * 100) : 0;
 
   const water = storage.getWaterGoal();
   const waterGoalMl = Math.max(water.goalMl, 1);
   const waterProgress = Math.min(100, Math.round((water.drunkMl / waterGoalMl) * 100));
+
+  const stepData = storage.getStepGoal();
+  const stepGoal = Math.max(stepData.goal, 1);
+  const stepProgress = Math.min(100, Math.round((stepData.steps / stepGoal) * 100));
+
+  // Weekly activity (last 7 days) based on habit log
+  const weekDays = Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const done = log[key]?.length ?? 0;
+    const total = habits.length || 1;
+    return { label: ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][d.getDay()], value: Math.round((done / total) * 100), isToday: key === todayKey() };
+  });
 
   const bmi = bmiOf(profile);
   const info = bmiInfo(bmi);
@@ -128,18 +161,18 @@ export default function Dashboard({ onNavigate, habits, favoritesCount, profile,
     <div className="space-y-8 animate-fade-up">
       {/* hero */}
       <section className="grid gap-5 lg:grid-cols-[1.35fr_0.95fr]">
-        <div className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-gradient-to-br from-blush-100 via-cream-100 to-cream-50 p-6 shadow-soft sm:p-9">
-          <div className="absolute -right-10 -top-16 h-52 w-52 rounded-full bg-blush-200/50 blur-3xl" />
-          <div className="absolute -bottom-16 left-1/4 h-44 w-44 rounded-full bg-sage-200/40 blur-3xl" />
+        <div className="relative overflow-hidden rounded-[2rem] border border-primary-700/20 bg-gradient-to-br from-primary-800 via-primary-700 to-primary-600 p-6 shadow-soft-lg sm:p-9">
+          <div className="absolute -right-10 -top-16 h-52 w-52 rounded-full bg-white/10 blur-3xl" />
+          <div className="absolute -bottom-16 left-1/4 h-44 w-44 rounded-full bg-sage-400/20 blur-3xl" />
           <div className="relative">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-choco-700/90 px-3 py-1 text-[11px] font-semibold tracking-wide text-cream-100">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold tracking-wide text-cream-100">
               <Sparkles size={12} /> {todayLabel()}
             </span>
-            <h1 className="display-title mt-4 text-balance">
+            <h1 className="display-title mt-4 text-balance text-cream-100">
               {greeting()},{' '}
-              <span className="accent-text">{profile.name}</span>
+              <span className="text-blush-500">{profile.name}</span>
             </h1>
-            <p className="mt-3 max-w-md text-[15px] leading-relaxed text-choco-500">
+            <p className="mt-3 max-w-md text-[15px] leading-relaxed text-cream-200/90">
               Твій AI-образ уже налаштований під стать, зріст і вагу. Почни з одного маленького
               кроку — далі буде легше.
             </p>
@@ -215,7 +248,7 @@ export default function Dashboard({ onNavigate, habits, favoritesCount, profile,
             className="sheet group flex items-center gap-4 p-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-lg"
           >
             <div className="relative grid place-items-center">
-              <Ring value={waterProgress} color="#6B9E72" />
+              <Ring value={waterProgress} color="#5A9EC9" />
               <span className="absolute text-sm font-semibold text-choco-800">{waterProgress}%</span>
             </div>
             <div className="min-w-0">
@@ -234,7 +267,7 @@ export default function Dashboard({ onNavigate, habits, favoritesCount, profile,
             className="sheet group flex items-center gap-4 p-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-lg"
           >
             <div className="relative grid place-items-center">
-              <Ring value={habitsProgress} color="#CF8FA3" />
+              <Ring value={habitsProgress} color="#C9A05A" />
               <span className="absolute text-sm font-semibold text-choco-800">{habitsProgress}%</span>
             </div>
             <div className="min-w-0">
@@ -251,8 +284,27 @@ export default function Dashboard({ onNavigate, habits, favoritesCount, profile,
           </button>
 
           <button
+            onClick={() => onNavigate('steps')}
+            className="sheet group flex items-center gap-4 p-5 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-lg"
+          >
+            <div className="relative grid place-items-center">
+              <Ring value={stepProgress} color="#C97A8A" />
+              <span className="absolute text-sm font-semibold text-choco-800">{stepProgress}%</span>
+            </div>
+            <div className="min-w-0">
+              <p className="eyebrow">Кроки</p>
+              <p className="stat-value mt-1">{stepData.steps.toLocaleString('uk-UA')}</p>
+              <p className="mt-1 text-xs text-choco-500">з {stepGoal.toLocaleString('uk-UA')}</p>
+            </div>
+            <ArrowUpRight
+              size={16}
+              className="ml-auto shrink-0 text-choco-400 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+            />
+          </button>
+
+          <button
             onClick={() => onNavigate('fitness')}
-            className="group relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-gradient-to-br from-choco-600 to-choco-800 p-5 text-left shadow-soft transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-lg"
+            className="group relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-gradient-to-br from-sky-500 to-sky-700 p-5 text-left shadow-soft transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-lg"
           >
             <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-blush-200/20 blur-2xl" />
             <div className="relative flex items-center gap-3">
@@ -273,6 +325,29 @@ export default function Dashboard({ onNavigate, habits, favoritesCount, profile,
               Почати <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
             </span>
           </button>
+        </div>
+      </section>
+
+      {/* weekly activity */}
+      <section className="glass-card p-6 sm:p-8">
+        <div className="mb-4 flex items-end justify-between">
+          <div>
+            <h2 className="section-title mb-1">Активність за тиждень</h2>
+            <p className="text-sm text-choco-500">Виконання звичок по днях</p>
+          </div>
+        </div>
+        <div className="flex items-end justify-between gap-2 h-40">
+          {weekDays.map((d, i) => (
+            <div key={i} className="flex flex-1 flex-col items-center gap-2">
+              <div className="relative w-full max-w-[2.5rem] flex-1 flex items-end">
+                <div
+                  className={`w-full rounded-t-lg transition-all duration-700 ${d.isToday ? 'bg-choco-700' : 'bg-sage-300'}`}
+                  style={{ height: `${Math.max(4, d.value)}%` }}
+                />
+              </div>
+              <span className={`text-[11px] font-medium ${d.isToday ? 'text-choco-700' : 'text-choco-400'}`}>{d.label}</span>
+            </div>
+          ))}
         </div>
       </section>
 

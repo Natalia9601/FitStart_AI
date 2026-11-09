@@ -28,14 +28,6 @@ export type Exercise = {
   alternative?: string;
 };
 
-export type Workout = {
-  duration: number;
-  type: string;
-  location: string;
-  level: string;
-  exercises: Exercise[];
-};
-
 export type Habit = {
   id: string;
   label: string;
@@ -48,7 +40,7 @@ export type AISettings = {
   model: string;
 };
 
-export type View = 'home' | 'recipes' | 'fitbuddy' | 'fitness' | 'habits' | 'favorites' | 'water';
+export type View = 'home' | 'recipes' | 'fitbuddy' | 'fitness' | 'habits' | 'favorites' | 'water' | 'steps' | 'nutrition';
 
 export type Gender = 'female' | 'male' | 'neutral';
 export type AccentKey = 'blush' | 'sage' | 'amber' | 'choco';
@@ -69,14 +61,28 @@ export type WaterGoal = {
   weightKg: number;
   goalMl: number;
   drunkMl: number;
+  history?: { date: string; value: number }[];
 };
 
-export type SleepGoal = {
-  bedtimeHour: number;
-  bedtimeMinute: number;
-  wakeupHour: number;
-  wakeupMinute: number;
-  sleepTargetMin: number;
-  actualSleepMin: number;
-  sleepLog: Array<{ date: string; sleptMin: number; note?: string }>;
+export type StepGoal = {
+  goal: number;
+  steps: number;
+  date: string;
+  history?: { date: string; value: number }[];
+};
+
+export type NutritionEntry = {
+  id: string;
+  name: string;
+  grams: number;
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+};
+
+export type NutritionLog = {
+  date: string;
+  goalKcal: number;
+  entries: NutritionEntry[];
 };

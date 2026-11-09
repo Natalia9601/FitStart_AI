@@ -1,7 +1,10 @@
 import type { AISettings, Exercise, Recipe } from '@/types';
 import { GOAL_LABELS, MOCK_RECIPES, MOCK_WORKOUT_EXERCISES, WORKOUT_TYPE_LABELS } from './mockData';
 
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const USE_PROXY = import.meta.env.VITE_USE_PROXY === 'true';
+const OPENROUTER_URL = USE_PROXY
+  ? '/api/openrouter'
+  : 'https://openrouter.ai/api/v1/chat/completions';
 
 export function isAIReady(settings: AISettings): boolean {
   return Boolean(settings.apiKey && settings.apiKey.trim().length > 10);
@@ -12,34 +15,44 @@ async function callOpenRouter(
   systemPrompt: string,
   userPrompt: string,
 ): Promise<string> {
-  const res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${settings.apiKey}`,
-      'HTTP-Referer': window.location.origin,
-      'X-Title': 'FitStart AI',
-    },
-    body: JSON.stringify({
-      model: settings.model || 'nvidia/nemotron-3.5-super-vl:free',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.8,
-      max_tokens: 1800,
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`API ${res.status}: ${errText.slice(0, 120)}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    const res = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(USE_PROXY ? {} : { Authorization: `Bearer ${settings.apiKey}` }),
+        'HTTP-Referer': window.location.origin,
+        'X-Title': 'FitStart AI',
+      },
+      body: JSON.stringify({
+        model: settings.model || 'nvidia/nemotron-3.5-super-vl:free',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.8,
+        max_tokens: 1800,
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`API ${res.status}: ${errText.slice(0, 120)}`);
+    }
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) throw new Error('Порожня відповідь від моделі');
+    return content as string;
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new Error('Час очікування вичерпано (30 с)');
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const data = await res.json();
-  const content = data?.choices?.[0]?.message?.content;
-  if (!content) throw new Error('Порожня відповідь від моделі');
-  return content as string;
 }
 
 function parseJSON<T>(raw: string): T {
@@ -75,6 +88,7 @@ export async function generateRecipes(
   try {
     const raw = await callOpenRouter(settings, system, user);
     const parsed = parseJSON<Recipe[]>(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('empty');
     return parsed.slice(0, 3).map((r, i) => ({
       ...r,
       id: `ai-${Date.now()}-${i}`,
@@ -108,7 +122,8 @@ export async function generateWorkout(
   try {
     const raw = await callOpenRouter(settings, system, user);
     const parsed = parseJSON<Exercise[]>(raw);
-    return parsed.length ? parsed : MOCK_WORKOUT_EXERCISES[type] ?? MOCK_WORKOUT_EXERCISES.warmup;
+    if (!Array.isArray(parsed) || parsed.length === 0) return MOCK_WORKOUT_EXERCISES[type] ?? MOCK_WORKOUT_EXERCISES.warmup;
+    return parsed;
   } catch {
     return MOCK_WORKOUT_EXERCISES[type] ?? MOCK_WORKOUT_EXERCISES.warmup;
   }
@@ -126,24 +141,32 @@ export async function chatReply(
   const system = `Ти — FitBuddy AI, дружній помічник зі збалансованого харчування та здорових звичок. Спілкуйся українською, тепло й без осуду. Став уточнювальні запитання по одному. Пропонуй плани з 3–5 простих кроків. Не став медичних діагнозів, не призначай ліків, не рекомендуй голодування чи екстремальні дієти. Якщо користувачу зле або він травмувався — порадь припинити вправу та звернутися до дорослого, якому довіряє, і медичного фахівця. Відповідай стисло, 2–4 речення.`;
 
   try {
-    const res = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${settings.apiKey}`,
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'FitStart AI',
-      },
-      body: JSON.stringify({
-        model: settings.model || 'nvidia/nemotron-3.5-super-vl:free',
-        messages: [
-          { role: 'system', content: system },
-          ...history.map((m) => ({ role: m.role, content: m.text })),
-        ],
-        temperature: 0.8,
-        max_tokens: 600,
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    let res: Response;
+    try {
+      res = await fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(USE_PROXY ? {} : { Authorization: `Bearer ${settings.apiKey}` }),
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'FitStart AI',
+        },
+        body: JSON.stringify({
+          model: settings.model || 'nvidia/nemotron-3.5-super-vl:free',
+          messages: [
+            { role: 'system', content: system },
+            ...history.map((m) => ({ role: m.role, content: m.text })),
+          ],
+          temperature: 0.8,
+          max_tokens: 600,
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!res.ok) throw new Error(`API ${res.status}`);
     const data = await res.json();
     const content = data?.choices?.[0]?.message?.content;
@@ -165,6 +188,28 @@ function mockChatReply(userText: string): string {
   if (t.includes('втом') || t.includes('перерв') || t.includes('відпоч'))
     return 'Втома — це сигнал, а не слабкість. Можу запропонувати план перерв: 5 хвилин на 50 хвилин навчання, легка розтяжка шиї та плечей, стакан води. Чи є в тебе конкретний час, коли відчуваєш найбільшу втому?';
   return 'Дякую, що написав! Я тут, щоб допомогти без тиску. Що саме тобі хотілося б змінити спочатку — харчування, рух чи режим дня?';
+}
+
+export async function estimateFood(
+  settings: AISettings,
+  name: string,
+): Promise<{ kcal: number; protein: number; carbs: number; fat: number } | null> {
+  if (!isAIReady(settings)) return null;
+  const system = `Ти — нутріціолог. Відповідай ТІЛЬКИ валідним JSON-об'єктом з КБЖУ на 100 г продукту українською. Без тексту поза JSON.`;
+  const user = `Продукт: "${name}". Поверни об'єкт: {"kcal": number, "protein": number, "carbs": number, "fat": number} — значення на 100 г. Якщо продукт невідомий — поверни найближчий типовий продукт.`;
+  try {
+    const raw = await callOpenRouter(settings, system, user);
+    const parsed = parseJSON<{ kcal: number; protein: number; carbs: number; fat: number }>(raw);
+    if (typeof parsed.kcal !== 'number') return null;
+    return {
+      kcal: Math.round(parsed.kcal),
+      protein: Math.round((parsed.protein ?? 0) * 10) / 10,
+      carbs: Math.round((parsed.carbs ?? 0) * 10) / 10,
+      fat: Math.round((parsed.fat ?? 0) * 10) / 10,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function testConnection(settings: AISettings): Promise<{ ok: boolean; message: string }> {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AISettings, FavoriteRecipe, Habit, Recipe, UserProfile, View } from '@/types';
 import { storage } from '@/lib/storage';
 import { DEFAULT_HABITS } from '@/lib/mockData';
@@ -14,6 +14,8 @@ import Fitness from '@/components/Fitness';
 import Habits from '@/components/Habits';
 import Favorites from '@/components/Favorites';
 import WaterTracker from '@/components/WaterTracker';
+import StepCounter from '@/components/StepCounter';
+import NutritionTracker from '@/components/NutritionTracker';
 
 export default function App() {
   const [view, setView] = useState<View>('home');
@@ -26,6 +28,20 @@ export default function App() {
     const stored = storage.getHabits();
     return stored.length ? stored : DEFAULT_HABITS;
   });
+  const [isOnline, setIsOnline] = useState<boolean>(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true,
+  );
+
+  useEffect(() => {
+    const on = () => setIsOnline(true);
+    const off = () => setIsOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
 
   const aiReady = useMemo(() => isAIReady(settings), [settings]);
 
@@ -45,9 +61,14 @@ export default function App() {
     storage.setFavorites(favorites);
   }, [favorites]);
 
-  function handleSaveSettings(s: AISettings) {
+  const handleSaveSettings = useCallback((s: AISettings) => {
     setSettings(s);
-  }
+  }, []);
+
+  const openSettings = useCallback(() => setShowSettings(true), []);
+  const closeSettings = useCallback(() => setShowSettings(false), []);
+  const openProfile = useCallback(() => setShowProfile(true), []);
+  const closeProfile = useCallback(() => setShowProfile(false), []);
 
   function isFavorite(id: string) {
     return favorites.some((f) => f.id === id);
@@ -73,13 +94,18 @@ export default function App() {
 
   return (
     <>
+      {!isOnline && (
+        <div className="fixed top-0 inset-x-0 z-50 bg-amber-soft/90 text-choco-800 text-center text-sm font-medium py-2 px-4 shadow-soft">
+          Офлайн-режим: AI-функції працюють у демо-режимі. Дані зберігаються локально.
+        </div>
+      )}
       <Layout
         view={view}
         profile={profile}
         aiReady={aiReady}
         onNavigate={navigate}
-        onOpenSettings={() => setShowSettings(true)}
-        onOpenProfile={() => setShowProfile(true)}
+        onOpenSettings={openSettings}
+        onOpenProfile={openProfile}
       >
         <ErrorBoundary key={view}>
           {view === 'home' && (
@@ -88,7 +114,7 @@ export default function App() {
               habits={habits}
               favoritesCount={favorites.length}
               profile={profile}
-              onOpenProfile={() => setShowProfile(true)}
+              onOpenProfile={openProfile}
             />
           )}
           {view === 'recipes' && (
@@ -103,6 +129,8 @@ export default function App() {
           {view === 'habits' && <Habits habits={habits} onHabitsChange={setHabits} />}
           {view === 'favorites' && <Favorites favorites={favorites} onRemove={removeFavorite} />}
           {view === 'water' && <WaterTracker />}
+          {view === 'steps' && <StepCounter />}
+          {view === 'nutrition' && <NutritionTracker settings={settings} />}
         </ErrorBoundary>
 
         <footer className="mt-12 border-t border-cream-400/40 pt-6 text-center text-xs leading-relaxed text-choco-400">
@@ -115,7 +143,7 @@ export default function App() {
         <SettingsModal
           settings={settings}
           onSave={handleSaveSettings}
-          onClose={() => setShowSettings(false)}
+          onClose={closeSettings}
         />
       )}
 
@@ -123,7 +151,7 @@ export default function App() {
         <ProfileModal
           profile={profile}
           onSave={setProfile}
-          onClose={() => setShowProfile(false)}
+          onClose={closeProfile}
         />
       )}
     </>

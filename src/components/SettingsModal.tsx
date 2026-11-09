@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, KeyRound, Loader2, Shield, Check, AlertTriangle, X } from 'lucide-react';
 import type { AISettings } from '@/types';
 import { testConnection, isAIReady } from '@/lib/api';
@@ -24,15 +24,67 @@ export default function SettingsModal({
   const [show, setShow] = useState(false);
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleExport() {
+    const data: Record<string, unknown> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('fitstart_')) {
+        try {
+          data[key] = JSON.parse(localStorage.getItem(key) ?? 'null');
+        } catch {
+          data[key] = localStorage.getItem(key);
+        }
+      }
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fitstart-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        if (typeof parsed !== 'object' || parsed === null) throw new Error('bad');
+        let count = 0;
+        for (const [k, v] of Object.entries(parsed)) {
+          if (k.startsWith('fitstart_')) {
+            localStorage.setItem(k, JSON.stringify(v));
+            count++;
+          }
+        }
+        setResult({ ok: true, message: `Імпортовано ${count} записів. Оновіть сторінку.` });
+      } catch {
+        setResult({ ok: false, message: 'Невірний файл резервної копії.' });
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!show) return;
+    const prev = document.activeElement as HTMLElement | null;
+    modalRef.current?.focus();
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [show, onClose]);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      prev?.focus?.();
+    };
+  }, [onClose]);
 
   const ready = isAIReady({ apiKey, model });
 
@@ -52,7 +104,7 @@ export default function SettingsModal({
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-choco-800/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md glass-card p-6 sm:p-8 animate-scale-in">
+      <div ref={modalRef} tabIndex={-1} className="relative w-full max-w-md glass-card p-6 sm:p-8 animate-scale-in outline-none">
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-display text-2xl text-choco-700">Налаштування AI</h2>
           <button onClick={onClose} className="btn-ghost !p-2" aria-label="Закрити">
@@ -136,6 +188,28 @@ export default function SettingsModal({
               повністю безпечним — для публічного розгортання використовуйте серверний
               посередник. Ключ не виводиться в консоль і не відображається у відкритому вигляді.
             </p>
+          </div>
+
+          <div className="rounded-2xl border border-cream-400/50 bg-cream-100/60 p-4 space-y-3">
+            <p className="text-sm font-semibold text-choco-600">Резервна копія даних</p>
+            <p className="text-xs text-choco-500 leading-relaxed">
+              Експортуйте всі дані (профіль, звички, вода, кроки, обране, налаштування) у JSON-файл або відновіть із файлу.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={handleExport} className="btn-soft flex-1 !py-2 text-sm">
+                Експортувати
+              </button>
+              <button onClick={() => fileInputRef.current?.click()} className="btn-soft flex-1 !py-2 text-sm">
+                Імпортувати
+              </button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={handleImportFile}
+            />
           </div>
 
           <div className="flex gap-3 pt-1">

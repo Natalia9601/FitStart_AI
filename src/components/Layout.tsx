@@ -1,13 +1,18 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import {
+  Apple,
   CheckSquare,
   ChevronRight,
   Droplet,
   Dumbbell,
+  Footprints,
   Heart,
   HeartPulse,
   Home,
+  MoreHorizontal,
   Settings,
+  User,
   UtensilsCrossed,
 } from 'lucide-react';
 import type { UserProfile, View } from '@/types';
@@ -15,32 +20,38 @@ import { bmiInfo, bmiOf } from '@/lib/avatar';
 import Logo from './Logo';
 import UserAvatar from './UserAvatar';
 
-type NavEntry = { id: View; label: string; icon: typeof Home; short: string };
+type NavEntry = { id: View | 'profile'; label: string; icon: typeof Home; short: string };
 
 const NAV: { group: string; items: NavEntry[] }[] = [
   {
-    group: 'Огляд',
-    items: [{ id: 'home', label: 'Головна', icon: Home, short: 'Головна' }],
+    group: 'OVERVIEW',
+    items: [
+      { id: 'home', label: 'Головна', icon: Home, short: 'Головна' },
+    ],
   },
   {
-    group: 'Щодення',
+    group: 'WELLNESS',
     items: [
+      { id: 'nutrition', label: 'Харчування', icon: Apple, short: 'Харчування' },
       { id: 'recipes', label: 'Рецепти', icon: UtensilsCrossed, short: 'Рецепти' },
       { id: 'fitness', label: 'Тренування', icon: Dumbbell, short: 'Рух' },
       { id: 'habits', label: 'Звички', icon: CheckSquare, short: 'Звички' },
       { id: 'water', label: 'Вода', icon: Droplet, short: 'Вода' },
+      { id: 'steps', label: 'Кроки', icon: Footprints, short: 'Кроки' },
     ],
   },
   {
-    group: 'Помічники',
+    group: 'PERSONAL',
     items: [
-      { id: 'fitbuddy', label: 'FitBuddy AI', icon: HeartPulse, short: 'AI' },
       { id: 'favorites', label: 'Обране', icon: Heart, short: 'Обране' },
+      { id: 'fitbuddy', label: 'FitBuddy AI', icon: HeartPulse, short: 'AI' },
+      { id: 'profile', label: 'Профіль', icon: User, short: 'Профіль' },
     ],
   },
 ];
 
 const FLAT_NAV = NAV.flatMap((g) => g.items);
+const PRIMARY_MOBILE = ['home', 'recipes', 'fitness', 'water', 'steps'];
 
 type Props = {
   view: View;
@@ -61,6 +72,7 @@ export default function Layout({
   onOpenProfile,
   children,
 }: Props) {
+  const [moreOpen, setMoreOpen] = useState(false);
   const bmi = bmiOf(profile);
   const info = bmiInfo(bmi);
 
@@ -91,8 +103,11 @@ export default function Layout({
                   const Icon = item.icon;
                   return (
                     <button
-                      key={item.id}
-                      onClick={() => onNavigate(item.id)}
+                      key={`${group.group}-${item.label}`}
+                      onClick={() => {
+                        if (item.id === 'profile') onOpenProfile();
+                        else onNavigate(item.id as View);
+                      }}
                       className={`nav-item w-full ${active ? 'nav-item-active' : ''}`}
                     >
                       <span
@@ -149,14 +164,14 @@ export default function Layout({
       {/* mobile top bar */}
       <div className="sticky top-0 z-30 border-b border-cream-400/40 bg-cream-100/85 backdrop-blur-xl lg:hidden">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <button onClick={() => onNavigate('home')} aria-label="На головну">
+          <button onClick={() => onNavigate('home')} aria-label="FitStart AI — на головну">
             <Logo size={34} />
           </button>
           <div className="flex items-center gap-1.5">
             <button
               onClick={onOpenProfile}
               className="flex items-center gap-2 rounded-full border border-white/70 bg-cream-50/90 py-1 pl-1 pr-3 shadow-soft"
-              aria-label="Мій профіль"
+              aria-label={`Мій профіль: ${profile.name}`}
             >
               <span className="grid h-8 w-8 place-items-center overflow-hidden rounded-full bg-blush-100">
                 <UserAvatar profile={profile} variant="bust" size={38} />
@@ -181,22 +196,58 @@ export default function Layout({
 
       {/* mobile bottom nav */}
       <nav className="fixed inset-x-3 bottom-3 z-40 lg:hidden">
-        <div className="flex items-center gap-1 overflow-x-auto rounded-[1.4rem] border border-white/70 bg-cream-50/95 p-1.5 shadow-soft-lg backdrop-blur-xl no-scrollbar">
-          {FLAT_NAV.map((item) => {
-            const active = view === item.id;
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onNavigate(item.id)}
-                className={`tab-item shrink-0 ${active ? 'tab-item-active' : ''}`}
-                aria-current={active ? 'page' : undefined}
-              >
-                <Icon size={19} />
-                {item.short}
-              </button>
-            );
-          })}
+        <div className="relative">
+          {moreOpen && (
+            <div className="absolute bottom-full mb-2 right-0 w-44 rounded-2xl border border-white/70 bg-cream-50/95 p-1.5 shadow-soft-lg backdrop-blur-xl">
+              {FLAT_NAV.filter((i) => !PRIMARY_MOBILE.includes(i.id)).map((item) => {
+                const active = view === item.id;
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      if (item.id === 'profile') onOpenProfile();
+                      else onNavigate(item.id as View);
+                      setMoreOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                      active ? 'bg-choco-700 text-cream-100' : 'text-choco-600 hover:bg-cream-300/60'
+                    }`}
+                  >
+                    <Icon size={16} /> {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex items-center gap-1 overflow-x-auto rounded-[1.4rem] border border-white/70 bg-cream-50/95 p-1.5 shadow-soft-lg backdrop-blur-xl no-scrollbar">
+            {FLAT_NAV.filter((i) => PRIMARY_MOBILE.includes(i.id)).map((item) => {
+              const active = view === item.id;
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if (item.id === 'profile') onOpenProfile();
+                    else onNavigate(item.id as View);
+                  }}
+                  className={`tab-item shrink-0 ${active ? 'tab-item-active' : ''}`}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <Icon size={19} />
+                  {item.short}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setMoreOpen((v) => !v)}
+              className={`tab-item shrink-0 ${moreOpen ? 'tab-item-active' : ''}`}
+              aria-label="Більше розділів"
+            >
+              <MoreHorizontal size={19} />
+              Ще
+            </button>
+          </div>
         </div>
       </nav>
     </div>

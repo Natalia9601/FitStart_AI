@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Ruler, Scale, Sparkles, UserRound, X } from 'lucide-react';
 import type { AccentKey, Gender, UserProfile } from '@/types';
 import {
@@ -27,12 +27,19 @@ type Props = {
 export default function ProfileModal({ profile, onSave, onClose }: Props) {
   const [draft, setDraft] = useState<UserProfile>(profile);
 
+  const modalRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    modalRef.current?.focus();
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      prev?.focus?.();
+    };
   }, [onClose]);
 
   const bmi = bmiOf(draft);
@@ -45,7 +52,7 @@ export default function ProfileModal({ profile, onSave, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4 animate-fade-in">
       <div className="absolute inset-0 bg-choco-800/45 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative my-auto w-full max-w-3xl overflow-hidden rounded-[2rem] border border-white/70 bg-cream-50 shadow-soft-lg animate-scale-in">
+      <div ref={modalRef} tabIndex={-1} className="relative my-auto w-full max-w-3xl overflow-hidden rounded-[2rem] border border-white/70 bg-cream-50 shadow-soft-lg animate-scale-in outline-none">
         <div className="flex items-center justify-between gap-3 border-b border-cream-400/50 px-6 py-4">
           <div>
             <p className="eyebrow">Мій профіль</p>

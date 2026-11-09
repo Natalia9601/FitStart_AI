@@ -165,7 +165,7 @@ export default function Fitness({ settings }: Props) {
           <div className="h-2 rounded-full bg-cream-400/50 overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-choco-500 to-choco-600 transition-all duration-500"
-              style={{ width: `${((current + 1) / exercises.length) * 100}%` }}
+              style={{ width: `${exercises.length ? ((current + 1) / exercises.length) * 100 : 0}%` }}
             />
           </div>
 

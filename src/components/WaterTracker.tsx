@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Droplet, Scale, X } from 'lucide-react';
 import type { WaterGoal } from '@/types';
-import { storage } from '@/lib/storage';
+import { storage, todayKey } from '@/lib/storage';
 
 const DEFAULT_WATER_GOAL: WaterGoal = {
   weightKg: 70,
@@ -37,17 +37,30 @@ export default function WaterTracker() {
   };
 
   const addDrunk = (ml: number) => {
-    setGoal(prev => ({
-      ...prev,
-      drunkMl: Math.min(goal.goalMl, goal.drunkMl + ml),
-    }));
+    setGoal((prev) => {
+      const today = todayKey();
+      const newDrunk = prev.drunkMl + ml;
+      const history = [...(prev.history ?? [])];
+      const idx = history.findIndex((h) => h.date === today);
+      if (idx >= 0) history[idx] = { date: today, value: newDrunk };
+      else history.push({ date: today, value: newDrunk });
+      return { ...prev, drunkMl: newDrunk, history: history.slice(-30) };
+    });
   };
 
   const resetToday = () => {
-    setGoal({
-      weightKg: goal.weightKg,
-      goalMl: calculateNorm(goal.weightKg),
-      drunkMl: 0,
+    setGoal((prev) => {
+      const today = todayKey();
+      const history = [...(prev.history ?? [])];
+      const idx = history.findIndex((h) => h.date === today);
+      if (idx >= 0) history[idx] = { date: today, value: 0 };
+      else history.push({ date: today, value: 0 });
+      return {
+        weightKg: prev.weightKg,
+        goalMl: calculateNorm(prev.weightKg),
+        drunkMl: 0,
+        history: history.slice(-30),
+      };
     });
   };
 
@@ -70,6 +83,8 @@ export default function WaterTracker() {
           <Scale size={20} className="text-choco-500" />
           <input
             type="number"
+            min={30}
+            max={200}
             value={goal.weightKg}
             onChange={(e) => {
               const val = parseFloat(e.target.value) || 0;
@@ -81,7 +96,7 @@ export default function WaterTracker() {
             className="input-field w-32 sm:w-40 text-choco-700 font-medium"
             autoComplete="off"
           />
-          <span className="text-xs text-choco-500">кг</span>
+          <span className="text-xs text-choco-500">кг (30–200)</span>
         </div>
 
         <p className="mt-3 text-sm text-choco-500">
@@ -126,8 +141,8 @@ export default function WaterTracker() {
           </div>
           <div className="h-8 rounded-full bg-cream-400/50 overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-sage-400 via-sage-500 to-sage-600 transition-all duration-700"
-              style={{ width: `${(goal.drunkMl / goal.goalMl) * 100}%` }}
+              className="h-full rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-sky-400 transition-all duration-700"
+              style={{ width: `${Math.min(100, (goal.drunkMl / goal.goalMl) * 100)}%` }}
             />
           </div>
           <p className="text-xs text-choco-500 mt-2">
@@ -142,7 +157,7 @@ export default function WaterTracker() {
         <div className="glass-card p-6">
           <h2 className="section-title mb-3">Швидке додавання</h2>
           <p className="text-choco-500 text-sm mb-3">
-            Швидке додавання:
+            Оберіть об'єм, щоб додати випиту воду:
           </p>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -176,6 +191,20 @@ export default function WaterTracker() {
           </div>
         </div>
       </div>
+
+      {/* History */}
+      {goal.history && goal.history.length > 1 && (
+        <div className="glass-card p-5">
+          <p className="text-sm font-semibold text-choco-600 mb-3">Останні дні (мл)</p>
+          <div className="flex flex-wrap gap-2">
+            {goal.history.slice().reverse().map((h) => (
+              <span key={h.date} className="rounded-full bg-cream-300/60 px-3 py-1 text-xs text-choco-600">
+                {h.date.slice(5)}: {h.value}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Reset button */}
       {goal.weightKg > 0 && (

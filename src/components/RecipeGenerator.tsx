@@ -230,7 +230,7 @@ export default function RecipeGenerator({ settings, onToggleFavorite, isFavorite
                   </div>
 
                   <div className="p-5 flex flex-col flex-1">
-                    <h3 className="font-display text-lg text-choco-700 leading-snug mb-2">{r.title}</h3>
+                    <h3 className="font-display text-lg text-choco-700 leading-snug mb-2 line-clamp-2">{r.title}</h3>
                     <div className="flex items-center gap-3 text-xs text-choco-500 mb-3">
                       <span className="flex items-center gap-1">
                         <Clock size={13} /> {r.timeMin} хв

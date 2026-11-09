@@ -3,7 +3,8 @@ import type {
   FavoriteRecipe,
   Habit,
   WaterGoal,
-  SleepGoal,
+  StepGoal,
+  NutritionLog,
   UserProfile,
 } from '@/types';
 
@@ -13,7 +14,8 @@ const KEYS = {
   habitLog: 'fitstart_habit_log',
   aiSettings: 'fitstart_ai_settings',
   waterGoal: 'fitstart_water_goal',
-  sleepGoal: 'fitstart_sleep_goal',
+  stepGoal: 'fitstart_step_goal',
+  nutritionLog: 'fitstart_nutrition_log',
   profile: 'fitstart_profile',
 } as const;
 
@@ -23,14 +25,16 @@ const DEFAULT_WATER_GOAL: WaterGoal = {
   drunkMl: 0,
 };
 
-const DEFAULT_SLEEP_GOAL: SleepGoal = {
-  bedtimeHour: 23,
-  bedtimeMinute: 0,
-  wakeupHour: 7,
-  wakeupMinute: 0,
-  sleepTargetMin: 480,
-  actualSleepMin: 0,
-  sleepLog: [],
+const DEFAULT_STEP_GOAL: StepGoal = {
+  goal: 8000,
+  steps: 0,
+  date: new Date().toISOString().slice(0, 10),
+};
+
+const DEFAULT_NUTRITION_LOG: NutritionLog = {
+  date: new Date().toISOString().slice(0, 10),
+  goalKcal: 2000,
+  entries: [],
 };
 
 const DEFAULT_PROFILE: UserProfile = {
@@ -55,8 +59,8 @@ function read<T>(key: string, fallback: T): T {
 function write<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* ignore quota errors */
+  } catch (e) {
+    console.warn('Не вдалося зберегти дані в localStorage:', e);
   }
 }
 
@@ -76,13 +80,25 @@ export const storage = {
   getWaterGoal: () => read<WaterGoal>(KEYS.waterGoal, DEFAULT_WATER_GOAL),
   setWaterGoal: (v: WaterGoal) => write(KEYS.waterGoal, v),
 
-  getSleepGoal: () => read<SleepGoal>(KEYS.sleepGoal, DEFAULT_SLEEP_GOAL),
-  setSleepGoal: (v: SleepGoal) => write(KEYS.sleepGoal, v),
+  getStepGoal: () => read<StepGoal>(KEYS.stepGoal, DEFAULT_STEP_GOAL),
+  setStepGoal: (v: StepGoal) => write(KEYS.stepGoal, v),
+
+  getNutritionLog: () => {
+    const stored = read<NutritionLog>(KEYS.nutritionLog, DEFAULT_NUTRITION_LOG);
+    const local = todayKey();
+    if (stored.date !== local) return { date: local, goalKcal: stored.goalKcal ?? DEFAULT_NUTRITION_LOG.goalKcal, entries: [] };
+    return stored;
+  },
+  setNutritionLog: (v: NutritionLog) => write(KEYS.nutritionLog, v),
 
   getProfile: () => ({ ...DEFAULT_PROFILE, ...read<UserProfile>(KEYS.profile, DEFAULT_PROFILE) }),
   setProfile: (v: UserProfile) => write(KEYS.profile, v),
 };
 
 export function todayKey(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
