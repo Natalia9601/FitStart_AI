@@ -115,6 +115,7 @@ export default function App() {
               favoritesCount={favorites.length}
               profile={profile}
               onOpenProfile={openProfile}
+              onProfileChange={setProfile}
             />
           )}
           {view === 'recipes' && (

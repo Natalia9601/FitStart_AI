@@ -25,6 +25,12 @@ describe('storage', () => {
     expect(s.steps).toBe(0);
   });
 
+  it('round-trips profile photo', () => {
+    const p = storage.getProfile();
+    storage.setProfile({ ...p, avatarImage: 'data:image/jpeg;base64,AAA' });
+    expect(storage.getProfile().avatarImage).toBe('data:image/jpeg;base64,AAA');
+  });
+
   it('resets drunk water on a new day and keeps weight norm', () => {
     const today = todayKey();
     storage.setWaterGoal({ weightKg: 70, goalMl: 2450, drunkMl: 1500, date: '2000-01-01' });

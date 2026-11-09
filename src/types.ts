@@ -53,6 +53,8 @@ export type UserProfile = {
   skinTone: number;
   hairColor: number;
   accent: AccentKey;
+  /** Стислий data-URL власного фото (якщо завантажено користувачем). */
+  avatarImage?: string;
 };
 
 export type TimeOption = 10 | 20 | 30;

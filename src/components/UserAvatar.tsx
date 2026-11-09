@@ -77,6 +77,19 @@ export default function UserAvatar({ profile, size = 240, variant = 'full', clas
   const hasLongHair = gender === 'female';
   const hasBob = gender === 'neutral';
 
+  if (profile.avatarImage) {
+    return (
+      <img
+        src={profile.avatarImage}
+        alt={`Моє фото, ${profile.name}`}
+        width={size}
+        height={size}
+        style={{ width: size, height: size }}
+        className={`rounded-full object-cover ${className}`}
+      />
+    );
+  }
+
   return (
     <svg
       role="img"

@@ -1,7 +1,9 @@
+import { useRef } from 'react';
 import {
   Apple,
   ArrowRight,
   ArrowUpRight,
+  Camera,
   CheckCircle2,
   CheckSquare,
   Droplet,
@@ -17,7 +19,7 @@ import type { Habit, UserProfile, View } from '@/types';
 import type { LucideIcon } from 'lucide-react';
 import { storage, todayKey } from '@/lib/storage';
 import { habitStreak, lastNDays } from '@/lib/streak';
-import { avatarTip, bmiInfo, bmiOf, greeting, todayLabel } from '@/lib/avatar';
+import { avatarTip, bmiInfo, bmiOf, greeting, processAvatarImage, todayLabel } from '@/lib/avatar';
 import UserAvatar from './UserAvatar';
 
 type Props = {
@@ -26,6 +28,7 @@ type Props = {
   favoritesCount: number;
   profile: UserProfile;
   onOpenProfile: () => void;
+  onProfileChange?: (p: UserProfile) => void;
 };
 
 function Ring({ value, color, size = 68 }: { value: number; color: string; size?: number }) {
@@ -126,7 +129,20 @@ const QUICK: {
   },
 ];
 
-export default function Dashboard({ onNavigate, habits, favoritesCount, profile, onOpenProfile }: Props) {
+export default function Dashboard({ onNavigate, habits, favoritesCount, profile, onOpenProfile, onProfileChange }: Props) {
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  async function handlePhotoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !onProfileChange) return;
+    try {
+      const dataUrl = await processAvatarImage(file);
+      onProfileChange({ ...profile, avatarImage: dataUrl });
+    } catch {
+      /* помилку видно у налаштуваннях профілю — тут тихо ігноруємо */
+    }
+  }
   const today = todayKey();
   const log = storage.getHabitLog();
   const done = log[today] ?? [];
@@ -234,7 +250,27 @@ export default function Dashboard({ onNavigate, habits, favoritesCount, profile,
           </div>
 
           <div className="relative mx-auto -mt-1 flex justify-center">
-            <UserAvatar profile={profile} size={196} />
+            <div className="relative">
+              <UserAvatar profile={profile} size={196} />
+              {onProfileChange && (
+                <button
+                  onClick={() => photoInputRef.current?.click()}
+                  className="absolute bottom-1 right-1 grid h-10 w-10 place-items-center rounded-full bg-choco-700 text-cream-100 shadow-soft transition hover:-translate-y-0.5"
+                  aria-label="Завантажити своє фото"
+                  title="Додати своє фото"
+                >
+                  <Camera size={17} />
+                </button>
+              )}
+            </div>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoFile}
+              aria-label="Файл фото"
+            />
           </div>
 
           <div

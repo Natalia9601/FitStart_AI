@@ -90,6 +90,44 @@ export function waterNormMl(weightKg: number): number {
   return Math.max(1500, Math.min(4000, Math.round(weightKg * 35)));
 }
 
+/**
+ * Стискає завантажене фото у квадратний data-URL JPEG (макс. 512px),
+ * щоб зручно зберігалося в localStorage.
+ */
+export function processAvatarImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('Файл не є зображенням'));
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const max = 512;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(url);
+        reject(new Error('Не вдалося обробити фото'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Не вдалося завантажити фото'));
+    };
+    img.src = url;
+  });
+}
+
 export type TipContext = {
   habitsDone: number;
   habitsTotal: number;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Ruler, Scale, Sparkles, UserRound, X } from 'lucide-react';
+import { Camera, Check, Ruler, Scale, Sparkles, Trash2, UserRound, X } from 'lucide-react';
 import type { AccentKey, Gender, UserProfile } from '@/types';
 import {
   ACCENTS,
@@ -8,6 +8,7 @@ import {
   SKIN_TONES,
   bmiInfo,
   bmiOf,
+  processAvatarImage,
   waterNormMl,
 } from '@/lib/avatar';
 import { trapFocus } from '@/lib/focus';
@@ -27,6 +28,8 @@ type Props = {
 
 export default function ProfileModal({ profile, onSave, onClose }: Props) {
   const [draft, setDraft] = useState<UserProfile>(profile);
+  const [photoError, setPhotoError] = useState('');
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -47,6 +50,19 @@ export default function ProfileModal({ profile, onSave, onClose }: Props) {
     setDraft((prev) => ({ ...prev, ...part }));
   }
 
+  async function handlePhotoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setPhotoError('');
+    try {
+      const dataUrl = await processAvatarImage(file);
+      patch({ avatarImage: dataUrl });
+    } catch {
+      setPhotoError('Не вдалося завантажити фото. Обери інше зображення.');
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4 animate-fade-in">
       <div className="absolute inset-0 bg-choco-800/45 backdrop-blur-sm" onClick={onClose} />
@@ -64,8 +80,59 @@ export default function ProfileModal({ profile, onSave, onClose }: Props) {
         <div className="grid gap-6 p-6 sm:grid-cols-[240px_1fr] sm:p-7">
           {/* live preview */}
           <div className="relative overflow-hidden rounded-[1.75rem] border border-white/70 bg-gradient-to-br from-blush-100 via-cream-100 to-sage-200/60 p-4">
-            <div className="flex items-center justify-center">
-              <UserAvatar profile={draft} size={210} />
+            <div className="flex flex-col items-center">
+              <div className="relative">
+                <UserAvatar profile={draft} size={210} />
+                <button
+                  onClick={() => photoInputRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 grid h-10 w-10 place-items-center rounded-full bg-choco-700 text-cream-100 shadow-soft transition hover:-translate-y-0.5"
+                  aria-label="Завантажити своє фото"
+                  title="Додати своє фото"
+                >
+                  <Camera size={17} />
+                </button>
+              </div>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoFile}
+                aria-label="Файл фото"
+              />
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                {draft.avatarImage ? (
+                  <>
+                    <button
+                      onClick={() => photoInputRef.current?.click()}
+                      className="btn-soft !px-3 !py-1.5 text-xs"
+                    >
+                      <Camera size={14} /> Замінити фото
+                    </button>
+                    <button
+                      onClick={() => patch({ avatarImage: undefined })}
+                      className="btn-soft !px-3 !py-1.5 text-xs"
+                    >
+                      <Trash2 size={14} /> Видалити
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => photoInputRef.current?.click()}
+                    className="btn-soft !px-3 !py-1.5 text-xs"
+                  >
+                    <Camera size={14} /> Додати своє фото
+                  </button>
+                )}
+              </div>
+              {photoError && (
+                <p className="mt-2 text-center text-xs font-medium text-blush-600">{photoError}</p>
+              )}
+              <p className="mt-2 text-center text-[11px] leading-relaxed text-choco-500">
+                {draft.avatarImage
+                  ? 'Показуємо твоє фото замість AI-образа'
+                  : 'Або залиш AI-образ — він будується за твоїми параметрами'}
+              </p>
             </div>
             <div className="mt-1 text-center">
               <p className="font-display text-xl text-choco-800">{draft.name.trim() || 'Без імені'}</p>
